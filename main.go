@@ -4,11 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"net/textproto"
-
 	"net"
 	"strconv"
-	"strings"
 )
 
 func run() error {
@@ -25,36 +22,12 @@ func run() error {
 	}
 	defer socket.Close()
 
-	reader := bufio.NewReader(socket)
-	scanner := textproto.NewReader(reader)
-
-	var method, path string
 	header := make(map[string]string)
+	reader := bufio.NewReader(socket)
 
-	isRequestLine := true
-	for {
-		line, err := scanner.ReadLine()
-		if line == "" {
-			break
-		}
-
-		if err != nil {
-			return err
-		}
-
-		if isRequestLine {
-			isRequestLine = false
-			requestLine := strings.Fields(line)
-			header["Method"] = requestLine[0]
-			header["Path"] = requestLine[1]
-			fmt.Println(method, path)
-			fmt.Println("foo")
-			continue
-		}
-
-		headerFields := strings.SplitN(line, ": ", 2)
-		fmt.Printf("%s: %s\n", headerFields[0], headerFields[1])
-		header[headerFields[0]] = headerFields[1]
+	err = ReadHttpRequestHeader(reader, header)
+	if err != nil {
+		return err
 	}
 
 	contentLengthStr, ok := header["Content-Length"]
@@ -72,6 +45,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
 	fmt.Printf("Body:%s\n", string(buf))
 	fmt.Println("Server: close listen...")
 	return nil
