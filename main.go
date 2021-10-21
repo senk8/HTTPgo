@@ -28,22 +28,43 @@ func run() error {
 	reader := bufio.NewReader(socket)
 	scanner := textproto.NewReader(reader)
 
-	var contentLength int
+	var method, path string
+	header := make(map[string]string)
+
+	isRequestLine := true
 	for {
 		line, err := scanner.ReadLine()
 		if line == "" {
 			break
 		}
+
 		if err != nil {
 			return err
 		}
-		if strings.HasPrefix(line, "Content-Length") {
-			contentLength, err = strconv.Atoi(strings.TrimSpace(strings.Split(line, ":")[1]))
-			if err != nil {
-				return err
-			}
+
+		if isRequestLine {
+			isRequestLine = false
+			requestLine := strings.Fields(line)
+			header["Method"] = requestLine[0]
+			header["Path"] = requestLine[1]
+			fmt.Println(method, path)
+			fmt.Println("foo")
+			continue
 		}
-		fmt.Println(line)
+
+		headerFields := strings.SplitN(line, ": ", 2)
+		fmt.Printf("%s: %s\n", headerFields[0], headerFields[1])
+		header[headerFields[0]] = headerFields[1]
+	}
+
+	contentLengthStr, ok := header["Content-Length"]
+	if !ok {
+		return fmt.Errorf("%d", 12)
+	}
+
+	contentLength, err := strconv.Atoi(contentLengthStr)
+	if err != nil {
+		return err
 	}
 
 	buf := make([]byte, contentLength)
@@ -51,25 +72,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Body:%s/n", string(buf))
-
-	/*
-		buf := make([]byte,1024)
-
-		for {
-			n, err := socket.Read(buf)
-			if n == 0 {
-				break
-			}
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(buf[:n]))
-		}
-	*/
-
+	fmt.Printf("Body:%s\n", string(buf))
 	fmt.Println("Server: close listen...")
-
 	return nil
 }
 
