@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func ReadHttpRequestHeader(scanner *textproto.Reader, header map[string]string) error {
+func readHttpRequestHeader(scanner *textproto.Reader, header map[string]string) error {
 	var method, path string
 	isRequestLine := true
 	for {

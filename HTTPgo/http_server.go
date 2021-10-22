@@ -28,7 +28,7 @@ func Run() error {
 	reader := bufio.NewReader(socket)
 	scanner := textproto.NewReader(reader)
 
-	err = ReadHttpRequestHeader(scanner, header)
+	err = readHttpRequestHeader(scanner, header)
 	if err != nil {
 		return err
 	}
@@ -46,6 +46,10 @@ func Run() error {
 					return err
 				}
 				fmt.Println(line)
+			}
+			err = writeHttpResponse(&socket)
+			if err != nil {
+				return err
 			}
 		} else {
 			return errors.New("Transfer-Encoding type is not defined.")
@@ -68,6 +72,11 @@ func Run() error {
 		}
 
 		fmt.Printf("Body:%s\n", string(buf))
+
+		err = writeHttpResponse(&socket)
+		if err != nil {
+			return err
+		}
 	}
 
 	fmt.Println("Server: close listen...")
