@@ -37,71 +37,88 @@ func Run() error {
 	}
 
 	if header["Method"] == "GET" {
-		path, ok := header["Path"]
-		if !ok {
-			return errors.New("no path found")
-		}
-		cwd, err := os.Getwd()
+		err := processGetRequest(&socket, header)
 		if err != nil {
 			return err
 		}
-		resourcePath := filepath.Join(cwd, filepath.Clean(path))
-		resource, err := ioutil.ReadFile(resourcePath)
-		if err != nil {
-			return err
-		}
-		err = writeHttpResponseWithResource(&socket, resource)
+	} else if header["Method"] == "POST" {
+		err := processPostRequest(&socket, reader, scanner, header)
 		if err != nil {
 			return err
 		}
 	} else {
-		transferEncoding, ok := header["Transfer-Encoding"]
-		if ok {
-			if transferEncoding == "chunked" {
-				for {
-					line, err := scanner.ReadLine()
-					if line == "0" {
-						break
-					}
-					if err != nil {
-						return err
-					}
-					fmt.Println(line)
-				}
-				err = writeHttpResponse(&socket)
-				if err != nil {
-					return err
-				}
-			} else {
-				return errors.New("Transfer-Encoding type is not defined.")
-			}
-		} else {
-			contentLengthStr, ok := header["Content-Length"]
-			if !ok {
-				return errors.New("Content-Length must be specified. ")
-			}
-
-			contentLength, err := strconv.Atoi(contentLengthStr)
-			if err != nil {
-				return err
-			}
-
-			buf := make([]byte, contentLength)
-			_, err = io.ReadFull(reader, buf)
-			if err != nil {
-				return err
-			}
-
-			fmt.Printf("Body:%s\n", string(buf))
-
-			err = writeHttpResponse(&socket)
-			if err != nil {
-				return err
-			}
-		}
-
+		panic("un-implement methods")
 	}
 
 	fmt.Println("Server: close listen...")
+	return nil
+}
+
+func processGetRequest(socket *net.Conn, header map[string]string) error {
+	path, ok := header["Path"]
+	if !ok {
+		return errors.New("no path found")
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	resourcePath := filepath.Join(cwd, filepath.Clean(path))
+	resource, err := ioutil.ReadFile(resourcePath)
+	if err != nil {
+		return err
+	}
+	err = writeHttpResponseWithResource(socket, resource)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func processPostRequest(socket *net.Conn, reader *bufio.Reader, scanner *textproto.Reader, header map[string]string) error {
+	transferEncoding, ok := header["Transfer-Encoding"]
+	if ok {
+		if transferEncoding == "chunked" {
+			for {
+				line, err := scanner.ReadLine()
+				if line == "0" {
+					break
+				}
+				if err != nil {
+					return err
+				}
+				fmt.Println(line)
+			}
+			err := writeHttpResponse(socket)
+			if err != nil {
+				return err
+			}
+		} else {
+			return errors.New("Transfer-Encoding type is not defined.")
+		}
+	} else {
+		contentLengthStr, ok := header["Content-Length"]
+		if !ok {
+			return errors.New("Content-Length must be specified. ")
+		}
+
+		contentLength, err := strconv.Atoi(contentLengthStr)
+		if err != nil {
+			return err
+		}
+
+		buf := make([]byte, contentLength)
+		_, err = io.ReadFull(reader, buf)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Body:%s\n", string(buf))
+
+		err = writeHttpResponse(socket)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
