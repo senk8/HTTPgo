@@ -20,18 +20,30 @@ func Run() error {
 	if err != nil {
 		return err
 	}
+	defer listener.Close()
 
 	socket, err := listener.Accept()
 	if err != nil {
 		return err
 	}
-	defer socket.Close()
 
+	go func(socket net.Conn) {
+		defer socket.Close()
+		if err := service(socket); err != nil {
+			fmt.Printf("%+v", err)
+		}
+	}(socket)
+
+	fmt.Println("Server: close listen...")
+	return nil
+}
+
+func service(socket net.Conn) error {
 	header := make(map[string]string)
 	reader := bufio.NewReader(socket)
 	scanner := textproto.NewReader(reader)
 
-	err = readHttpRequestHeader(scanner, header)
+	err := readHttpRequestHeader(scanner, header)
 	if err != nil {
 		return err
 	}
@@ -50,7 +62,6 @@ func Run() error {
 		panic("un-implement methods")
 	}
 
-	fmt.Println("Server: close listen...")
 	return nil
 }
 
@@ -64,15 +75,42 @@ func processGetRequest(socket *net.Conn, header map[string]string) error {
 		return err
 	}
 	resourcePath := filepath.Join(cwd, filepath.Clean(path))
-	resource, err := ioutil.ReadFile(resourcePath)
-	if err != nil {
-		return err
-	}
-	err = writeHttpResponseWithResource(socket, resource)
-	if err != nil {
-		return err
+	if !fileExists(resourcePath) {
+		io.WriteString(*socket, "HTTP/1.1 404 Not Found\r\n")
+		if err != nil {
+			return err
+		}
+		io.WriteString(*socket, "Content-Type: text/html\r\n")
+		if err != nil {
+			return err
+		}
+		io.WriteString(*socket, "\r\n")
+		if err != nil {
+			return err
+		}
+		io.WriteString(*socket, string("<h1>Error 404</h1>"))
+		if err != nil {
+			return err
+		}
+	} else {
+		resource, err := ioutil.ReadFile(resourcePath)
+		if err != nil {
+			return err
+		}
+		err = writeHttpResponseWithResource(socket, resource)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
 }
 
 func processPostRequest(socket *net.Conn, reader *bufio.Reader, scanner *textproto.Reader, header map[string]string) error {

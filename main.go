@@ -6,7 +6,9 @@ import (
 )
 
 func main() {
-	if err := HTTPgo.Run(); err != nil {
-		fmt.Printf("Error: %s", err)
+	for {
+		if err := HTTPgo.Run(); err != nil {
+			fmt.Printf("Error: %s", err)
+		}
 	}
 }
