@@ -1,14 +1,12 @@
 package HTTPgo
 
 import (
-	"bufio"
 	"fmt"
 	"net/textproto"
 	"strings"
 )
 
-func ReadHttpRequestHeader(reader *bufio.Reader, header map[string]string) error {
-	scanner := textproto.NewReader(reader)
+func ReadHttpRequestHeader(scanner *textproto.Reader, header map[string]string) error {
 	var method, path string
 	isRequestLine := true
 	for {
