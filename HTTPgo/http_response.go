@@ -1,36 +1,28 @@
 package HTTPgo
 
 import (
+	"fmt"
 	"io"
 	"net"
+	"strings"
 )
 
-func writeHttpResponse(socket *net.Conn) error {
-	_, err := io.WriteString(*socket, "HTTP/1.1 200 OK\r\n")
-	if err != nil {
-		return err
-	}
-	_, err = io.WriteString(*socket, "Content-Type: text/html\r\n")
-	if err != nil {
-		return err
-	}
-	_, err = io.WriteString(*socket, "\r\n")
-	if err != nil {
-		return err
-	}
-	_, err = io.WriteString(*socket, "<h1>Hello World!!</h1>")
-	if err != nil {
-		return err
-	}
-	return nil
+type HttpResponse struct {
+	Scheme       string
+	StatusCode   string
+	StatusPhrase string
+	ContentType  string
+	Body         string
 }
 
-func writeHttpResponseWithResource(socket *net.Conn, resource []byte) error {
-	_, err := io.WriteString(*socket, "HTTP/1.1 200 OK\r\n")
+func (resp *HttpResponse) writeHttpResponse(socket *net.Conn) error {
+	statusLine := strings.Join([]string{resp.Scheme, resp.StatusCode, resp.StatusPhrase}, " ") + "\r\n"
+	_, err := io.WriteString(*socket, statusLine)
 	if err != nil {
 		return err
 	}
-	_, err = io.WriteString(*socket, "Content-Type: text/html\r\n")
+	contentType := fmt.Sprintf("Content-Type: %s\r\n", resp.ContentType)
+	_, err = io.WriteString(*socket, contentType)
 	if err != nil {
 		return err
 	}
@@ -38,7 +30,7 @@ func writeHttpResponseWithResource(socket *net.Conn, resource []byte) error {
 	if err != nil {
 		return err
 	}
-	_, err = io.WriteString(*socket, string(resource))
+	_, err = io.WriteString(*socket, resp.Body)
 	if err != nil {
 		return err
 	}

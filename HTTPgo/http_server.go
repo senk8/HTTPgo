@@ -59,7 +59,14 @@ func service(socket net.Conn) error {
 		if err != nil {
 			return err
 		}
-		err = writeHttpResponse(&socket)
+		response := HttpResponse{
+			Scheme:       "HTTP/1.1",
+			StatusCode:   "200",
+			StatusPhrase: "OK",
+			ContentType:  "text/html",
+			Body:         "<h1>Hello world!</h1>",
+		}
+		err = response.writeHttpResponse(&socket)
 		if err != nil {
 			return err
 		}
@@ -81,7 +88,14 @@ func responseGetRequest(socket *net.Conn, request *HttpRequest) error {
 	}
 	resourcePath := filepath.Join(cwd, filepath.Clean(path))
 	if !fileExists(resourcePath) {
-		err := writeHttpResponseNotFound(socket)
+		response := HttpResponse{
+			Scheme:       "HTTP/1.1",
+			StatusCode:   "404",
+			StatusPhrase: "Not Found",
+			ContentType:  "text/html",
+			Body:         "<h1>Error 404</h1>",
+		}
+		err := response.writeHttpResponse(socket)
 		if err != nil {
 			return err
 		}
@@ -90,7 +104,14 @@ func responseGetRequest(socket *net.Conn, request *HttpRequest) error {
 		if err != nil {
 			return err
 		}
-		err = writeHttpResponseWithResource(socket, resource)
+		response := HttpResponse{
+			Scheme:       "HTTP/1.1",
+			StatusCode:   "200",
+			StatusPhrase: "OK",
+			ContentType:  "text/html",
+			Body:         string(resource),
+		}
+		err = response.writeHttpResponse(socket)
 		if err != nil {
 			return err
 		}
