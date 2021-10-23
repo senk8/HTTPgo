@@ -4,13 +4,11 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net"
 	"net/textproto"
 	"os"
 	"path/filepath"
-	"strconv"
 )
 
 func Run() error {
@@ -39,22 +37,29 @@ func Run() error {
 }
 
 func service(socket net.Conn) error {
-	header := make(map[string]string)
 	reader := bufio.NewReader(socket)
 	scanner := textproto.NewReader(reader)
 
-	err := readHttpRequestHeader(scanner, header)
+	request := HttpRequest{
+		Header: make(map[string]string),
+	}
+
+	err := request.readHttpRequestHeader(scanner)
 	if err != nil {
 		return err
 	}
 
-	if header["Method"] == "GET" {
-		err := processGetRequest(&socket, header)
+	if request.IsGet() {
+		err := responseGetRequest(&socket, &request)
 		if err != nil {
 			return err
 		}
-	} else if header["Method"] == "POST" {
-		err := processPostRequest(&socket, reader, scanner, header)
+	} else if request.IsPost() {
+		err := processPostRequest(reader, scanner, &request)
+		if err != nil {
+			return err
+		}
+		err = writeHttpResponse(&socket)
 		if err != nil {
 			return err
 		}
@@ -65,8 +70,8 @@ func service(socket net.Conn) error {
 	return nil
 }
 
-func processGetRequest(socket *net.Conn, header map[string]string) error {
-	path, ok := header["Path"]
+func responseGetRequest(socket *net.Conn, request *HttpRequest) error {
+	path, ok := request.Header["Path"]
 	if !ok {
 		return errors.New("no path found")
 	}
@@ -76,19 +81,7 @@ func processGetRequest(socket *net.Conn, header map[string]string) error {
 	}
 	resourcePath := filepath.Join(cwd, filepath.Clean(path))
 	if !fileExists(resourcePath) {
-		io.WriteString(*socket, "HTTP/1.1 404 Not Found\r\n")
-		if err != nil {
-			return err
-		}
-		io.WriteString(*socket, "Content-Type: text/html\r\n")
-		if err != nil {
-			return err
-		}
-		io.WriteString(*socket, "\r\n")
-		if err != nil {
-			return err
-		}
-		io.WriteString(*socket, string("<h1>Error 404</h1>"))
+		err := writeHttpResponseNotFound(socket)
 		if err != nil {
 			return err
 		}
@@ -113,8 +106,8 @@ func fileExists(path string) bool {
 	return !info.IsDir()
 }
 
-func processPostRequest(socket *net.Conn, reader *bufio.Reader, scanner *textproto.Reader, header map[string]string) error {
-	transferEncoding, ok := header["Transfer-Encoding"]
+func processPostRequest(reader *bufio.Reader, scanner *textproto.Reader, request *HttpRequest) error {
+	transferEncoding, ok := request.Header["Transfer-Encoding"]
 	if ok {
 		if transferEncoding == "chunked" {
 			for {
@@ -127,36 +120,16 @@ func processPostRequest(socket *net.Conn, reader *bufio.Reader, scanner *textpro
 				}
 				fmt.Println(line)
 			}
-			err := writeHttpResponse(socket)
-			if err != nil {
-				return err
-			}
 		} else {
 			return errors.New("Transfer-Encoding type is not defined.")
 		}
 	} else {
-		contentLengthStr, ok := header["Content-Length"]
-		if !ok {
-			return errors.New("Content-Length must be specified. ")
-		}
-
-		contentLength, err := strconv.Atoi(contentLengthStr)
+		err := request.readBodyWithContentLength(reader)
 		if err != nil {
 			return err
 		}
-
-		buf := make([]byte, contentLength)
-		_, err = io.ReadFull(reader, buf)
-		if err != nil {
-			return err
-		}
-
-		fmt.Printf("Body:%s\n", string(buf))
-
-		err = writeHttpResponse(socket)
-		if err != nil {
-			return err
-		}
+		fmt.Printf("Body:%s\n", string(request.Body))
 	}
+
 	return nil
 }
