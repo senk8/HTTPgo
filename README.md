@@ -1,2 +1,2 @@
 # HTTPgo
-HTTP server in Golang
+Implementation of HTTP server  in Golang
